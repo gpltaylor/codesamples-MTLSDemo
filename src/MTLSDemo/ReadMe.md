@@ -58,6 +58,8 @@ $rootCert = New-SelfSignedCertificate -Type Custom -KeyUsageProperty Sign -KeyUs
 Export-Certificate -Cert $rootCert -FilePath .\rootCA.cer
 ```
 
+**Important:** The `$rootCert` variable created here will be used in the next two steps to sign both the server and client certificates. This establishes a chain of trust where the root CA acts as the trusted authority for both certificates.
+
 ### Step 2: Generate a self-signed server certificate
 
 Run the below command in Powershell window
@@ -68,6 +70,8 @@ $serverCert = New-SelfSignedCertificate -Type Custom -DnsName "localhost" `
     -Signer $rootCert -NotAfter (Get-Date).AddYears(2) -FriendlyName "BankingServiceServer"
 Export-PfxCertificate -Cert $serverCert -FilePath .\server.pfx -Password (ConvertTo-SecureString -String "YourPassword123" -Force -AsPlainText)
 ```
+
+**Note:** The `-Signer $rootCert` parameter is crucial here. It uses the root CA certificate created in Step 1 to sign this server certificate, creating a trusted certificate chain. This means the server certificate is issued by and can be verified against the root CA.
 
 ### Step 3: Generate a self-signed client certificate
 
@@ -80,11 +84,16 @@ $clientCert = New-SelfSignedCertificate -Type Custom -DnsName "client" `
 Export-PfxCertificate -Cert $clientCert -FilePath .\client.pfx -Password (ConvertTo-SecureString -String "ClientPassword123" -Force -AsPlainText)
 ```
 
+**Note:** Similar to Step 2, the `-Signer $rootCert` parameter uses the root CA certificate to sign this client certificate. Both the server and client certificates are now signed by the same root CA, which is essential for mutual trust verification during mTLS handshake.
+
 All these commands will generate the certificates in the current directory. You can change the path to save them in a different location. The `-Password` parameter is used to protect the PFX files with a password. Make sure to use a strong password and keep it secure.
 
 ### Step 4: Install the root certificate
 
-To install the root certificate, you can double-click on the `rootCA.cer` file and follow the prompts to install it in the Trusted Root Certification Authorities store. This step is important to ensure that the server and client certificates are trusted by your system.
+To install the root certificate, you can double-click on the `rootCA.cer` file and follow the prompts to install it in the Trusted Root Certification Authorities store. 
+
+**Why is this step necessary?**
+Since both the server and client certificates were signed by the root CA (using `-Signer $rootCert` in Steps 2 and 3), your system needs to trust the root CA in order to trust the certificates it signed. By installing the root CA in the Trusted Root Certification Authorities store, you're telling your system to trust any certificate that was signed by this root CA. This completes the certificate chain of trust and allows the mTLS handshake to succeed.
 
 ## Configure the server to use the certificates
 You will need to configure your server to use the generated certificates. This typically involves specifying the paths to the PFX files and the passwords you used when exporting them. The exact steps will depend on the programming language and framework you are using.
